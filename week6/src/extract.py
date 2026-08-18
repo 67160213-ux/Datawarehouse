@@ -45,4 +45,3 @@ def extract_data():
         print(f"  - {name}: {df.shape[0]} rows, {df.shape[1]} columns")
 
     return raw
-    raise NotImplementedError

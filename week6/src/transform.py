@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from .config import PROVINCE_MAP, OUTPUT_DIR
 
 def transform_data(raw):
     # ---------------------------------------------------------
@@ -8,9 +9,16 @@ def transform_data(raw):
     df_cust = raw["customers"].copy()
     df_cust = df_cust.drop_duplicates(subset=["customer_id"])
     
+    def clean_province(val):
+        if pd.isna(val):
+            return "Unknown"
+        val_str = str(val).strip()
+        if val_str.lower() in ["nan", "none", "null", ""]:
+            return "Unknown"
+        return PROVINCE_MAP.get(val_str.lower(), val_str.title())
+
     if "province" in df_cust.columns:
-        df_cust["province"] = df_cust["province"].astype(str).str.strip().str.title()
-        df_cust["province"] = df_cust["province"].replace({"Nan": "Unknown", "None": "Unknown", "nan": "Unknown"})
+        df_cust["province"] = df_cust["province"].apply(clean_province)
     else:
         df_cust["province"] = "Unknown"
         
@@ -22,28 +30,30 @@ def transform_data(raw):
     # ---------------------------------------------------------
     df_prod = raw["products"].copy()
     
-    # Flatten คอลัมน์ที่เกิดจาก nested JSON (ดึงเฉพาะชื่อคอลัมน์ตัวหลังสุด)
-    df_prod.columns = [str(col).split(".")[-1] for col in df_prod.columns]
-    
-    # แปลงชื่อคอลัมน์ให้เข้ากับมาตรฐาน
-    rename_map = {}
-    for col in df_prod.columns:
-        if col in ["id", "prod_id"]:
-            rename_map[col] = "product_id"
-        elif col in ["name", "title"]:
-            rename_map[col] = "product_name"
-        elif col in ["unit_price", "cost", "price_thb"]:
-            rename_map[col] = "price"
-            
+    # Rename columns based on normalized JSON fields or legacy naming
+    rename_map = {
+        "category.name": "category",
+        "pricing.price": "price",
+        "id": "product_id",
+        "prod_id": "product_id",
+        "unit_price": "price",
+        "cost": "price",
+        "price_thb": "price"
+    }
     df_prod = df_prod.rename(columns=rename_map)
     
-    # แปลง price เป็น numeric
+    # Check if category wasn't mapped due to single level
+    if "category.name" not in raw["products"].columns and "category" not in df_prod.columns:
+        df_prod["category"] = "Unknown"
+
+    # Clean price
     if "price" in df_prod.columns:
+        df_prod["price"] = df_prod["price"].astype(str).str.replace(",", "").str.strip()
         df_prod["price"] = pd.to_numeric(df_prod["price"], errors="coerce")
     else:
         df_prod["price"] = 0.0
 
-    # จัดการ missing category
+    # Clean category missing
     if "category" in df_prod.columns:
         df_prod["category"] = df_prod["category"].fillna("Unknown")
     else:
@@ -57,22 +67,22 @@ def transform_data(raw):
     df_orders = raw["orders"].copy()
     df_orders = df_orders.drop_duplicates(subset=["order_id"])
     
-    df_orders["order_date"] = pd.to_datetime(df_orders["order_date"], errors="coerce")
+    df_orders["order_date"] = pd.to_datetime(df_orders["order_date"], errors="coerce", format="mixed")
     df_orders["status"] = df_orders["status"].astype(str).str.strip().str.lower()
     
     df_orders["qty"] = pd.to_numeric(df_orders["qty"], errors="coerce")
     df_orders["unit_price"] = pd.to_numeric(df_orders["unit_price"], errors="coerce")
-    df_orders["discount_pct"] = pd.to_numeric(df_orders["discount_pct"], errors="coerce").fillna(0)
+    df_orders["discount_pct"] = pd.to_numeric(df_orders["discount_pct"], errors="coerce")
 
-    # กฎการคัดออก (Reject conditions)
-    cond_valid_qty = df_orders["qty"] > 0
-    cond_valid_price = df_orders["unit_price"] > 0
-    cond_valid_discount = (df_orders["discount_pct"] >= 0) & (df_orders["discount_pct"] <= 100)
+    # Reject conditions
+    cond_valid_qty = df_orders["qty"].notna() & (df_orders["qty"] > 0)
+    cond_valid_price = df_orders["unit_price"].notna() & (df_orders["unit_price"] > 0)
+    cond_valid_discount = df_orders["discount_pct"].notna() & (df_orders["discount_pct"] >= 0) & (df_orders["discount_pct"] <= 100)
     cond_valid_date = df_orders["order_date"].notna()
     cond_valid_status = df_orders["status"].isin(["paid", "completed"])
 
-    valid_customer_ids = set(df_cust["customer_id"])
-    valid_product_ids = set(df_prod["product_id"])
+    valid_customer_ids = set(df_cust["customer_id"].dropna())
+    valid_product_ids = set(df_prod["product_id"].dropna())
     
     cond_in_master = (
         df_orders["customer_id"].isin(valid_customer_ids) & 
@@ -92,16 +102,16 @@ def transform_data(raw):
     df_rejects = df_orders[~is_valid].copy()
 
     # ---------------------------------------------------------
-    # 4. คำนวณยอดขาย
+    # 4. Calculate Sales
     # ---------------------------------------------------------
     df_valid_orders["gross_amount"] = df_valid_orders["qty"] * df_valid_orders["unit_price"]
     df_valid_orders["discount_amount"] = df_valid_orders["gross_amount"] * df_valid_orders["discount_pct"] / 100.0
     df_valid_orders["sales_amount"] = df_valid_orders["gross_amount"] - df_valid_orders["discount_amount"]
 
     # ---------------------------------------------------------
-    # 5. บันทึก rejects.csv
+    # 5. Save rejects.csv
     # ---------------------------------------------------------
-    os.makedirs("output", exist_ok=True)
-    df_rejects.to_csv("output/rejects.csv", index=False)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    df_rejects.to_csv(OUTPUT_DIR / "rejects.csv", index=False)
 
     return df_cust, df_prod, df_valid_orders, df_rejects
