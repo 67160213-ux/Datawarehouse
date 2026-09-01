@@ -1,0 +1,7 @@
+﻿step,metric,value
+Combine Orders,Raw Orders Count,752
+Deduplication,Deduplicated Orders Count,750
+Range Check,Valid Price/Qty/Discount Orders,746
+Referential Integrity,Unmatched Customer ID,22
+Referential Integrity,Unmatched Product ID,2
+Payment Validation,Final PAID & Matched Sales Transactions,660
