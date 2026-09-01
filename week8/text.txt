@@ -1,3 +1,10 @@
+[ DEDUPLICATION SUMMARY COMPARISON ]
+- Orders combined: Before = 752 | After = 750 | Removed = 2
+- Customers CRM:   Before = 163 | After = 160 | Removed = 3
+- Payments Data:   Before = 752 | After = 751 | Removed = 1
+- Product Master:  Before = 40  | After = 40  | Removed = 0
+
+
 1. จำนวนแถวหลังรวมไฟล์ orders และหลังลบ duplicate
     จำนวนแถวหลังรวมไฟล์: 752 แถว (มกราคม 361 แถว + กุมภาพันธ์ 391 แถว)
     จำนวนแถวหลังลบ Duplicate: 750 แถว

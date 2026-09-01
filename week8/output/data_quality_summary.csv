@@ -1,0 +1,6 @@
+﻿ขั้นตอนกระบวนการ (Pipeline Stage),จำนวนแถวที่เหลือ,จำนวนแถวที่ถูกคัดออก
+1. Raw Combined Orders,752,-
+2. Deduplication,750,2
+3. Range Check,746,4
+4. Referential Integrity,722,24
+5. Final Integrated Sales,660,62

@@ -123,7 +123,7 @@ def run_etl_pipeline():
     dim_product.to_csv(OUTPUT / 'dim_product.csv', index=False, encoding='utf-8-sig')
     fact_sales.to_csv(OUTPUT / 'fact_sales.csv', index=False, encoding='utf-8-sig')
 
-    # Data Quality Report
+    # Data Quality Report แบบละเอียด
     dq_data = [
         {'step': 'Combine Orders', 'metric': 'Raw Orders Count', 'value': total_raw_orders},
         {'step': 'Deduplication', 'metric': 'Deduplicated Orders Count', 'value': dedup_orders_count},
@@ -133,6 +133,37 @@ def run_etl_pipeline():
         {'step': 'Payment Validation', 'metric': 'Final PAID & Matched Sales Transactions', 'value': len(fact_sales)}
     ]
     pd.DataFrame(dq_data).to_csv(OUTPUT / 'data_quality_report.csv', index=False, encoding='utf-8-sig')
+
+    # ตารางสรุปคุณภาพข้อมูลรายขั้นตอน (Pipeline Stage Summary Table)
+    pipeline_summary_data = [
+        {
+            'ขั้นตอนกระบวนการ (Pipeline Stage)': '1. Raw Combined Orders',
+            'จำนวนแถวที่เหลือ': total_raw_orders,
+            'จำนวนแถวที่ถูกคัดออก': '-'
+        },
+        {
+            'ขั้นตอนกระบวนการ (Pipeline Stage)': '2. Deduplication',
+            'จำนวนแถวที่เหลือ': dedup_orders_count,
+            'จำนวนแถวที่ถูกคัดออก': total_raw_orders - dedup_orders_count
+        },
+        {
+            'ขั้นตอนกระบวนการ (Pipeline Stage)': '3. Range Check',
+            'จำนวนแถวที่เหลือ': len(valid_orders),
+            'จำนวนแถวที่ถูกคัดออก': dedup_orders_count - len(valid_orders)
+        },
+        {
+            'ขั้นตอนกระบวนการ (Pipeline Stage)': '4. Referential Integrity',
+            'จำนวนแถวที่เหลือ': len(orders_matched),
+            'จำนวนแถวที่ถูกคัดออก': len(valid_orders) - len(orders_matched)
+        },
+        {
+            'ขั้นตอนกระบวนการ (Pipeline Stage)': '5. Final Integrated Sales',
+            'จำนวนแถวที่เหลือ': len(fact_sales),
+            'จำนวนแถวที่ถูกคัดออก': len(orders_matched) - len(fact_sales)
+        }
+    ]
+    df_pipeline_summary = pd.DataFrame(pipeline_summary_data)
+    df_pipeline_summary.to_csv(OUTPUT / 'data_quality_summary.csv', index=False, encoding='utf-8-sig')
 
     # TODO 7: สร้าง summary_by_province.csv และ summary_by_category.csv
     print("\n--- TODO 7: Generating Summaries ---")
@@ -148,9 +179,14 @@ def run_etl_pipeline():
     top_province = summary_prov.iloc[0]
     top_category = summary_cat.iloc[0]
 
-    print("\n=======================================================")
-    print("                    FINAL RESULTS                      ")
-    print("=======================================================")
+    print("\n==========================================================================================")
+    print("                           DATA QUALITY PIPELINE STAGE SUMMARY                            ")
+    print("==========================================================================================")
+    print(df_pipeline_summary.to_string(index=False))
+    
+    print("\n==========================================================================================")
+    print("                                     FINAL RESULTS                                        ")
+    print("==========================================================================================")
     print(f"1. จำนวนแถวหลังรวมไฟล์ orders: {total_raw_orders} แถว (มกราคม {len(orders_jan)} แถว + กุมภาพันธ์ {len(orders_feb)} แถว)")
     print(f"   จำนวนแถวหลังลบ Duplicate: {dedup_orders_count} แถว")
     print(f"2. จำนวนแถวที่ไม่พบใน Master Data:")
@@ -167,7 +203,7 @@ def run_etl_pipeline():
     print("   - เกิด Data Explosion : การเชื่อมข้อมูลก่อนลบข้อมูลซ้ำ (Duplicates) ส่งผลให้ตัวเลขยอดขายถูกนับซ้ำ")
     print("   - คำนวณยอดขายผิดพลาด: รายการชำระเงินที่ไม่สำเร็จ (FAILED, CANCELLED), ค่าติดลบ หรือส่วนลดที่ผิดปกติจะถูกดึงเข้ามารวมในรายงานยอดขาย ทำให้นำข้อมูลไปใช้งานไม่ได้")
     print("   - ไม่สามารถตรวจสอบย้อนกลับได้ : ไม่สามารถระบุได้ชัดเจนว่าข้อมูลถูกคัดออกในขั้นตอนใด และทำให้ Data Quality Report ไม่สามารถสะท้อนคุณภาพของข้อมูลดิบได้อย่างแม่นยำ")
-    print("=======================================================")
+    print("==========================================================================================")
 
 if __name__ == '__main__':
     run_etl_pipeline()
