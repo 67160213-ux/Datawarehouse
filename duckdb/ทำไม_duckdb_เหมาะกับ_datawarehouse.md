@@ -1,0 +1,3 @@
+# ทำไม DuckDB ถึงเหมาะกับงาน Data Warehouse และ Data Analytics
+
+เพราะ DuckDB มีสถาปัตยกรรมแบบ Columnar Storage และ Vectorized Execution ที่อ่านและประมวลผลเฉพาะคอลัมน์ที่จำเป็น ทำให้คำนวณ Aggregation และ Join ข้อมูลปริมาณมากได้อย่างรวดเร็ว นอกจากนี้ยังเป็น In-Process Database ที่ใช้งานได้ทันทีโดยไม่ต้องติดตั้ง Server รองรับ SQL วิเคราะห์ข้อมูลขั้นสูงเต็มรูปแบบ เหมาะสำหรับการทำ Local Analytics, Data Exploration และต่อยอดไปยัง Cloud Data Warehouse เช่น BigQuery หรือ Snowflake ได้อย่างมีประสิทธิภาพ
